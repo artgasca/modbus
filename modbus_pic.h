@@ -1,16 +1,11 @@
 //////////////////////////////////////////////////////////////////////////////////////////
-////                                     modbus.c                                     ////
+////                                     modbus.h                                     ////
 ////                                                                                  ////
 ////           MODBUS protocol driver for serial and TCP/IP communications.           ////
 ////                                                                                  ////
 ////  Refer to documentation at http://www.modbus.org for more information on MODBUS. ////
 ////                                                                                  ////
 //////////////////////////////////////////////////////////////////////////////////////////
-////                                                                                  ////
-////  How to Use:                                                                     ////
-////                                                                                  ////
-////  Include just this file, modbus.c, in your main program. Before including this   ////
-////  file define the constants below for your needs.                                 ////
 ////                                                                                  ////
 //// DEFINES:                                                                         ////
 ////  MODBUS_PROTOCOL               MODBUS_PROTOCOL_SERIAL or MODBUS_PROTOCOL_TCPIP   ////
@@ -58,7 +53,7 @@
 ////                    modes.                                                        ////
 ////                                                                                  ////
 //////////////////////////////////////////////////////////////////////////////////////////
-////                (C) Copyright 1996, 2013 Custom Computer Services                 ////
+////                (C) Copyright 1996, 2010 Custom Computer Services                 ////
 ////        This source code may only be used by licensed users of the CCS            ////
 ////        C compiler.  This source code may only be distributed to other            ////
 ////        licensed users of the CCS C compiler.  No other use,                      ////
@@ -67,21 +62,138 @@
 ////        in object code form are not restricted in any way.                        ////
 //////////////////////////////////////////////////////////////////////////////////////////
 
-#include "modbus.h"
+#ifndef MODBUS_PIC_H
+#define MODBUS_PIC_H
+
+/*Some defines so we can use identifiers to set things up*/
+#define MODBUS_PROTOCOL_SERIAL 0
+#define MODBUS_PROTOCOL_TCPIP  100
+#define MODBUS_TYPE_MASTER 99999
+#define MODBUS_TYPE_SLAVE  88888
+#define MODBUS_TYPE_CLIENT 20
+#define MODBUS_TYPE_SERVER 21
+#define MODBUS_INT_RDA     77777
+#define MODBUS_INT_RDA2    66666
+#define MODBUS_INT_RDA3    44444
+#define MODBUS_INT_RDA4    33333
+#define MODBUS_INT_RDA5    22222
+#define MODBUS_INT_EXT     55555
+#define MODBUS_RTU         1
+#define MODBUS_ASCII       2
+#define MODBUS_TIMER_NOISR 13
+#define MODBUS_TIMER_ISR   12
+#define MODBUS_TIMER_T1    14
+#define MODBUS_TIMER_T2    15
+
+#ifndef MODBUS_PROTOCOL
+ #define MODBUS_PROTOCOL MODBUS_PROTOCOL_SERIAL
+#endif
 
 #if (MODBUS_PROTOCOL == MODBUS_PROTOCOL_SERIAL)
- #if (MODBUS_SERIAL_TYPE == MODBUS_RTU)
-  #include "modbus_phy_layer_rtu.c"
- #elif (MODBUS_SERIAL_TYPE == MODBUS_ASCII)
-  #include "modbus_phy_layer_ascii.c"
+ #ifndef MODBUS_TYPE
+  #define MODBUS_TYPE MODBUS_TYPE_MASTER
  #endif
-#else
- #include "modbus_phy_layer_tcpip.c"
+
+ #ifndef MODBUS_SERIAL_TYPE
+  #define MODBUS_SERIAL_TYPE MODBUS_RTU
+ #endif
+
+ #ifndef MODBUS_SERIAL_INT_SOURCE
+  #define MODBUS_SERIAL_INT_SOURCE MODBUS_INT_RDA   // Select between external interrupt
+ #endif                                             // or asynchronous serial interrupt
+
+ #ifndef MODBUS_SERIAL_BAUD
+  #define MODBUS_SERIAL_BAUD 9600
+ #endif
+
+ #ifndef MODBUS_SERIAL_RX_PIN
+  #define MODBUS_SERIAL_RX_PIN       PIN_C7   // Data receive pin
+ #endif
+
+ #ifndef MODBUS_SERIAL_TX_PIN
+  #define MODBUS_SERIAL_TX_PIN       PIN_C6   // Data transmit pin
+ #endif
+
+ #ifndef MODBUS_SERIAL_ENABLE_PIN
+  #define MODBUS_SERIAL_ENABLE_PIN   0   // Controls DE pin.  RX low, TX high.
+ #endif
+
+ #ifndef MODBUS_SERIAL_RX_ENABLE
+  #define MODBUS_SERIAL_RX_ENABLE    0   // Controls RE pin.  Should keep low.
+ #endif
+
+ #ifndef MODBUS_PARITY
+  #define MODBUS_PARITY "EVEN"
+ #endif
+
+ #ifndef MODBUS_SERIAL_TIMEOUT
+  #if (MODBUS_SERIAL_TYPE == MODBUS_ASCII)
+   #define MODBUS_SERIAL_TIMEOUT    1000000
+  #else
+   #define MODBUS_SERIAL_TIMEOUT      10000     //in us
+  #endif
+ #endif
+
+ #ifndef MODBUS_SERIAL_RX_BUFFER_SIZE
+  #define MODBUS_SERIAL_RX_BUFFER_SIZE  64      //size of send/rcv buffer
+ #endif
+
+ #ifndef MODBUS_TIMER_UPDATE
+  #define MODBUS_TIMER_UPDATE MODBUS_TIMER_ISR
+ #endif
+
+ #ifndef MODBUS_TIMER_USED
+  #define MODBUS_TIMER_USED MODBUS_TIMER_T1
+ #endif
+
+#else ///////////////////////// MODBUS TCP/IP PROTOCOL /////////////////////////
+ #ifndef MODBUS_TYPE
+  #define MODBUS_TYPE   MODBUS_TYPE_CLIENT
+ #endif
+
+ #ifndef MODBUS_SERVER_LISTEN_PORT
+  #define MODBUS_SERVER_LISTEN_PORT    502   //this is the default listen port for MODBUS TCP/IP protocol
+ #endif
+
+ #if (MODBUS_TYPE == MODBUS_TYPE_SERVER)
+  #ifndef MODBUS_LISTEN_SOCKETS
+   #define MODBUS_LISTEN_SOCKETS     1
+  #endif
+ #endif
+
+ #ifndef MODBUS_BUFFER_SIZE
+  #define MODBUS_BUFFER_SIZE   64
+ #endif
+
+ #ifndef MODBUS_SERVER_TIMEOUT
+  #define MODBUS_SERVER_TIMEOUT  5  //time in seconds that client will wait for server response before timeout
+ #endif
+
+ #if (MODBUS_TYPE == MODBUS_TYPE_CLIENT)
+  #ifndef MODBUS_SERVER_ADDR_0
+   #define MODBUS_SERVER_ADDR_0  192
+   #define MODBUS_SERVER_ADDR_1  168
+   #define MODBUS_SERVER_ADDR_2  100
+   #define MODBUS_SERVER_ADDR_3  140
+  #endif
+ #endif
+
+ #ifndef debug_printf
+  #define debug_printf(a,b,c,d,e,f,g,h,i,k,l,m,n,o,p,q,r,s,t,u)
+ #endif
+
 #endif
 
 #if (MODBUS_PROTOCOL == MODBUS_PROTOCOL_TCPIP)
- #include "modbus_app_layer_tcpip.c"
+ #include "modbus_phy_layer_tcpip.h"
 #else
- #include "modbus_app_layer.c"
+ #include "modbus_phy_layer.h"
 #endif
 
+#if (MODBUS_PROTOCOL == MODBUS_PROTOCOL_TCPIP)
+ #include "modbus_app_layer_tcpip.h"
+#else
+ #include "modbus_app_layer.h"
+#endif
+
+#endif //MODBUS_H
